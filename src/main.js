@@ -1,4 +1,5 @@
 const SHA256 = require('crypto-js/sha256')
+const prettyMs = require('pretty-ms');
 
 class Block {
   constructor(index, timestamp, data, previousHash = '') {
@@ -7,16 +8,28 @@ class Block {
     this.data = data;
     this.previousHash = previousHash;
     this.hash = this.calculateHash();
+    this.nonce = 0;
   }
 
   calculateHash() {
-    return SHA256(this.index + this.previousHash + this.timestamp + JSON.stringify(this.data)).toString();
+    return SHA256(this.index + this.previousHash + this.timestamp + JSON.stringify(this.data) + this.nonce).toString();
+  }
+
+  mineBlock(difficulty) {
+    const before = Date.now();
+    while (this.hash.substring(0, difficulty) !== Array(difficulty + 1).join('0')) {
+      this.nonce++;
+      this.hash = this.calculateHash();
+    }
+
+    console.log(`Block mined in ${prettyMs(Date.now() - before)}: ` + this.hash);
   }
 }
 
 class Blockchain {
   constructor() {
     this.chain = [this.createGenesisBlock()];
+    this.difficulty = 5;
   }
 
   createGenesisBlock() {
@@ -29,7 +42,7 @@ class Blockchain {
 
   addBlock(newBlock) {
     newBlock.previousHash = this.getLatestBlock().hash;
-    newBlock.hash = newBlock.calculateHash();
+    newBlock.mineBlock(this.difficulty);
     this.chain.push(newBlock);
   }
 
@@ -54,22 +67,10 @@ class Blockchain {
 }
 
 let borwwcoin = new Blockchain();
+
+console.log('Mining block 1...');
 borwwcoin.addBlock(new Block(1, '21/01/2021', { amount: 4 }));
+console.log('Mining block 2...');
 borwwcoin.addBlock(new Block(2, '22/01/2021', { amount: 10 }));
 
-console.log(borwwcoin.isChainValid());
-
-borwwcoin.chain[1].data = { amount: 50 };
-console.log(borwwcoin.isChainValid());
-
-borwwcoin.chain[1].hash = borwwcoin.chain[1].calculateHash();
-console.log(borwwcoin.isChainValid());
-
-borwwcoin.chain[2].previousHash = borwwcoin.chain[1].hash
-console.log(borwwcoin.isChainValid());
-
-borwwcoin.chain[2].hash = borwwcoin.chain[2].calculateHash()
-console.log(borwwcoin.isChainValid());
-
-console.log(JSON.stringify(borwwcoin, null, 4))
-
+console.log(borwwcoin)
