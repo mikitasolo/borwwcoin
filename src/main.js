@@ -1,18 +1,25 @@
 const SHA256 = require('crypto-js/sha256')
 const prettyMs = require('pretty-ms');
 
+class Transaction {
+  constructor(fromAddress, toAddress, amount) {
+    this.fromAddress = fromAddress;
+    this.toAddress = toAddress;
+    this.amount = amount;
+  }
+}
+
 class Block {
-  constructor(index, timestamp, data, previousHash = '') {
-    this.index = index;
+  constructor(timestamp, transactions, previousHash = '') {
     this.timestamp = timestamp;
-    this.data = data;
+    this.transactions = transactions;
     this.previousHash = previousHash;
     this.hash = this.calculateHash();
     this.nonce = 0;
   }
 
   calculateHash() {
-    return SHA256(this.index + this.previousHash + this.timestamp + JSON.stringify(this.data) + this.nonce).toString();
+    return SHA256(this.previousHash + this.timestamp + JSON.stringify(this.transactions) + this.nonce).toString();
   }
 
   mineBlock(difficulty) {
@@ -28,22 +35,50 @@ class Block {
 
 class Blockchain {
   constructor() {
+    this.difficulty = 3;
+    this.pendingTransactions = [];
+    this.miningReward = 100;
     this.chain = [this.createGenesisBlock()];
-    this.difficulty = 5;
   }
 
   createGenesisBlock() {
-    return new Block(0, '20/01/2021', "Genesis block", '0');
+    let block = new Block(Date.now(), [], '0');
+    block.mineBlock(this.difficulty);
+    return block;
   }
 
   getLatestBlock() {
     return this.chain[this.chain.length - 1];
   }
 
-  addBlock(newBlock) {
-    newBlock.previousHash = this.getLatestBlock().hash;
-    newBlock.mineBlock(this.difficulty);
-    this.chain.push(newBlock);
+  minePendingTransactions(miningRewardAddress) {
+    let block = new Block(Date.now(), this.pendingTransactions, this.getLatestBlock().hash);
+    block.mineBlock(this.difficulty);
+
+    this.chain.push(block);
+    this.pendingTransactions = [
+      new Transaction(null, miningRewardAddress, this.miningReward),
+    ];
+  }
+
+  createTransaction(transaction) {
+    this.pendingTransactions.push(transaction);
+  }
+
+  getBalanceOfAddress(address) {
+    return this.chain.reduce((amountInChain, block) => {
+      return amountInChain + block.transactions.reduce((amountInBlock, txn) => {
+        if (txn.fromAddress === address) {
+          return amountInBlock - txn.amount;
+        }
+
+        if (txn.toAddress === address) {
+          return amountInBlock + txn.amount;
+        }
+
+        return amountInBlock;
+      }, 0)
+    }, 0)
   }
 
   isChainValid() {
@@ -52,12 +87,12 @@ class Blockchain {
       const previousBlock = this.chain[i - 1];
       const expectedCurrentHash = currentBlock.calculateHash();
       if (currentBlock.hash !== expectedCurrentHash) {
-        console.error(`The chain is not valid due to incorrect hash of block ${currentBlock.index}.\nCurrent: ${currentBlock.hash}.\nExpected: ${expectedCurrentHash}`)
+        console.error(`The chain is not valid due to incorrect hash of block ${currentBlock.hash}.\nExpected hash: ${expectedCurrentHash}`)
         return false;
       }
 
       if (currentBlock.previousHash !== previousBlock.hash) {
-        console.error(`The chain is not valid due to hashes inconsistency of blocks ${currentBlock.index} and ${previousBlock.index}.\nCurrent: ${currentBlock.previousHash}.\nExpected: ${previousBlock.hash}`)
+        console.error(`The chain is not valid due to hashes inconsistency of blocks.\nBlock ${currentBlock.hash} has ${currentBlock.previousHash} as previous while expected: ${previousBlock.hash}`)
         return false;
       }
     }
@@ -68,9 +103,11 @@ class Blockchain {
 
 let borwwcoin = new Blockchain();
 
-console.log('Mining block 1...');
-borwwcoin.addBlock(new Block(1, '21/01/2021', { amount: 4 }));
-console.log('Mining block 2...');
-borwwcoin.addBlock(new Block(2, '22/01/2021', { amount: 10 }));
+borwwcoin.createTransaction(new Transaction('address1', 'address2', 100));
+borwwcoin.createTransaction(new Transaction('address2', 'address1', 50));
 
-console.log(borwwcoin)
+borwwcoin.minePendingTransactions('borww_address');
+console.log('borww', borwwcoin.getBalanceOfAddress('borww_address'));
+console.log('1', borwwcoin.getBalanceOfAddress('address1'));
+console.log('2', borwwcoin.getBalanceOfAddress('address2'));
+console.log(borwwcoin);
