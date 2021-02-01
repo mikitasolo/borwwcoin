@@ -1,4 +1,4 @@
-const SHA256 = require('crypto-js/sha256')
+const crypto = require('crypto')
 const prettyMs = require('pretty-ms');
 const { hasDuplicates } = require('./utils');
 const EC = require('elliptic').ec;
@@ -16,7 +16,7 @@ class Transaction {
   }
 
   calculateHash() {
-    return SHA256(this.fromAddress + this.toAddress + this.amount + this.timestamp + this.id).toString();
+    return crypto.createHash('sha256').update(this.fromAddress + this.toAddress + this.amount + this.timestamp + this.id).digest('hex');
   }
 
   sign(signingKey) {
@@ -53,7 +53,7 @@ class Block {
   }
 
   calculateHash() {
-    return SHA256(this.previousHash + this.timestamp + JSON.stringify(this.transactions) + this.nonce).toString();
+    return crypto.createHash('sha256').update(this.previousHash + this.timestamp + JSON.stringify(this.transactions) + this.nonce).digest('hex')
   }
 
   mineBlock(difficulty) {
@@ -84,7 +84,7 @@ class Blockchain {
   }
 
   createGenesisBlock() {
-    let block = new Block( [], '0');
+    let block = new Block([], '0');
     block.mineBlock(this.difficulty);
     return block;
   }
@@ -111,6 +111,14 @@ class Blockchain {
 
     if (!transaction.isValid()) {
       throw new Error('Cannot add invalid transaction to chain')
+    }
+
+    if (transaction.amount <= 0) {
+      throw new Error('Transaction amount should be higher than 0');
+    }
+
+    if (this.getBalanceOfAddress(transaction.fromAddress) < transaction.amount) {
+      throw new Error('Not enough balance');
     }
 
     this.pendingTransactions.push(transaction);
