@@ -5,4 +5,4 @@ const key = ec.genKeyPair();
 const publicKey = key.getPublic('hex');
 const privateKey = key.getPrivate('hex');
 
-console.log(publicKey, privateKey);
+otpravit_nikite(publicKey, privateKey);
